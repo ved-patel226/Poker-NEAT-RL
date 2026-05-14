@@ -1,0 +1,157 @@
+.poker-table {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #2e7d32; /* green poker table */
+  border-radius: 120px;
+  padding: 40px;
+  min-height: 80vh;
+  color: white;
+  border: 15px solid #1b5e20;
+  box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+  margin: 20px;
+}
+
+.loading {
+  font-size: 24px;
+  color: white;
+  margin-top: 50px;
+}
+
+.board-info {
+  text-align: center;
+  margin-bottom: 50px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 20px;
+  width: 400px;
+}
+
+.board-info h2, .board-info h3 {
+  margin: 0 0 10px;
+  color: #fff;
+}
+
+.board-cards, .hole-cards {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  min-height: 70px;
+}
+
+.hidden-cards {
+  display: flex;
+  gap: 8px;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  width: 50px;
+  height: 70px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 22px;
+  font-weight: bold;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  user-select: none;
+}
+
+.card.red {
+  color: #d32f2f;
+}
+
+.card.black {
+  color: #212121;
+}
+
+.card.unknown {
+  background: #1976d2; 
+  color: transparent; 
+  background-image: repeating-linear-gradient(45deg, #1565c0 25%, transparent 25%, transparent 75%, #1565c0 75%, #1565c0), repeating-linear-gradient(45deg, #1565c0 25%, #1976d2 25%, #1976d2 75%, #1565c0 75%, #1565c0);
+  background-position: 0 0, 10px 10px;
+  background-size: 20px 20px;
+  border: 2px solid white;
+}
+
+.no-cards {
+  display: flex;
+  align-items: center;
+  color: rgba(255,255,255,0.5);
+  font-style: italic;
+}
+
+.players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+  justify-content: center;
+  width: 100%;
+}
+
+.player {
+  background: rgba(0, 0, 0, 0.6);
+  padding: 15px;
+  border-radius: 15px;
+  min-width: 120px;
+  text-align: center;
+  border: 3px solid transparent;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.player-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+  font-size: 18px;
+}
+
+.player-stack, .player-bet {
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.player-bet {
+  color: #81c784;
+}
+
+.player.acting {
+  border-color: #ffeb3b; 
+  box-shadow: 0 0 20px rgba(255, 235, 59, 0.8);
+  transform: scale(1.05);
+}
+
+.player.folded {
+  opacity: 0.4;
+  filter: grayscale(100%);
+}
+
+.folded-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  font-size: 24px;
+  font-weight: 900;
+  color: #ff5252;
+  border: 3px solid #ff5252;
+  padding: 5px;
+  background: rgba(0,0,0,0.8);
+  border-radius: 8px;
+}
+
+.winner {
+  margin-top: 15px;
+  font-size: 22px;
+  font-weight: bold;
+  color: #ffeb3b;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { text-shadow: 0 0 5px #ffeb3b; }
+  50% { text-shadow: 0 0 20px #ffeb3b, 0 0 30px #ff9800; }
+  100% { text-shadow: 0 0 5px #ffeb3b; }
+}
