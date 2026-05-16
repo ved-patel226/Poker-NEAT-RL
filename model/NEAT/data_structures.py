@@ -24,6 +24,15 @@ class Genome:
     fitness_score: torch.Tensor  # scalar
 
 
+@dataclass
+class Species:
+    id: int
+    representative: Genome  # one genome, used for distance comparisons
+    members: list
+    best_fitness: float = 0.0
+    generations_stale: int = 0
+
+
 class InnovationTracker:
     __slots__ = ("history", "next_innovation_number")
 
