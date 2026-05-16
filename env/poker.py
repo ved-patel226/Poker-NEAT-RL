@@ -5,6 +5,7 @@ except ImportError:
 
 
 from pokerkit import NoLimitTexasHoldem, Mode, Automation
+import torch
 
 # (2-A) is 13-dim
 RANK_ORDER = [
@@ -177,67 +178,84 @@ class Observation:
         else:
             raise ValueError(f"Invalid action type {action.type}. Expected 0, 1, or 2.")
 
-    def get_tensor_input(self, player_idx: int = None):
-        """
-        Returns a flat PyTorch tensor representing the current state.
-        Optionally masks hole cards for other players if `player_idx` is specified (Perfect for RL agents).
-        """
-        import torch
+    def get_tensor_input(self, player_idx: int = None) -> torch.Tensor:
+        state = self.get_state()
 
-        state_dict = self.get_state()
+        x = torch.zeros(314, dtype=torch.float32)
 
-        # global stats
-        pot = float(state_dict["pot"])
-        curr_bet = float(state_dict["current_bet"])
-        min_raise = float(state_dict["min_raise"])
+        ptr = 0
 
-        # street one-hot (PREFLOP, FLOP, TURN, RIVER)
-        street_names = ["Preflop", "Flop", "Turn", "River"]
-        street_idx = (
-            street_names.index(state_dict["street"].value)
-            if state_dict["street"].value in street_names
-            else 0
-        )
-        street_oh = [0.0] * 4
-        street_oh[street_idx] = 1.0
+        x[ptr] = float(state["pot"])
+        ptr += 1
 
-        # board (up to 5 cards, 13+4=17 dims each) -> 85 dims
-        board_features = []
-        for i in range(5):
-            if i < len(state_dict["board"]):
-                c = state_dict["board"][i]
-                board_features.extend(c["rank_one_hot"] + c["suit_one_hot"])
-            else:
-                board_features.extend([0.0] * 17)
+        x[ptr] = float(state["current_bet"])
+        ptr += 1
 
-        # players (6 players * (stack + folded + contributed + 2*17)) -> 6 * 37 = 222 dims
-        player_features = []
-        for p in state_dict["players"]:
-            player_features.append(float(p["stack"]))
-            player_features.append(float(p["folded"]))
-            player_features.append(float(p["contributed_street"]))
+        x[ptr] = float(state["min_raise"])
+        ptr += 1
 
-            # hole cards (up to 2 cards) -> 34 dims per player
+        street = state["street"].value
+
+        if street == "Preflop":
+            x[ptr] = 1.0
+        elif street == "Flop":
+            x[ptr + 1] = 1.0
+        elif street == "Turn":
+            x[ptr + 2] = 1.0
+        elif street == "River":
+            x[ptr + 3] = 1.0
+        else:
+            x[ptr] = 1.0
+
+        ptr += 4
+
+        board = state["board"]
+
+        for i in range(min(len(board), 5)):
+            c = board[i]
+
+            rank = c["rank_one_hot"]
+            suit = c["suit_one_hot"]
+
+            x[ptr : ptr + 13] = torch.tensor(rank)
+            x[ptr + 13 : ptr + 17] = torch.tensor(suit)
+
+            ptr += 17
+
+        ptr += (5 - len(board)) * 17
+
+        for p in state["players"]:
+
+            x[ptr] = float(p["stack"])
+            ptr += 1
+
+            x[ptr] = float(p["folded"])
+            ptr += 1
+
+            x[ptr] = float(p["contributed_street"])
+            ptr += 1
+
+            visible_cards = player_idx is None or player_idx == p["index"]
+
+            hole_cards = p["hole_cards"]
+
             for i in range(2):
-                # mask other players' cards if player_idx is requested
-                if i < len(p["hole_cards"]) and (
-                    player_idx is None or player_idx == p["index"]
-                ):
-                    c = p["hole_cards"][i]
-                    player_features.extend(c["rank_one_hot"] + c["suit_one_hot"])
-                else:
-                    player_features.extend([0.0] * 17)
 
-        # feature vector size: 3 + 4 + 85 + 222 = 314 dimensions
-        all_features = (
-            [pot, curr_bet, min_raise] + street_oh + board_features + player_features
-        )
-        return torch.tensor(all_features, dtype=torch.float32)
+                if i < len(hole_cards) and visible_cards:
+
+                    c = hole_cards[i]
+
+                    rank = c["rank_one_hot"]
+                    suit = c["suit_one_hot"]
+
+                    x[ptr : ptr + 13] = torch.tensor(rank)
+                    x[ptr + 13 : ptr + 17] = torch.tensor(suit)
+
+                ptr += 17
+
+        return x
 
     def get_action_bounds(self) -> dict:
-        """
-        Returns the action bounds for the currently acting player for the model prediction output.
-        """
         min_amount = self.state.min_completion_betting_or_raising_to_amount
         actor_idx = self.state.actor_index
 

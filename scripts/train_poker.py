@@ -1,3 +1,7 @@
+import warnings
+
+warnings.filterwarnings("ignore", message="There is no reason for this player to fold.")
+
 import sys
 import os
 import torch
@@ -9,7 +13,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from model.NEAT.data_structures import Genome, InnovationTracker
 from model.NEAT.genome_operations_torch import create_genome, forward
 from model.NEAT.evolution import run_generation
-from model.NEAT.visualization import visualize_population_and_best
+
+# from model.NEAT.visualization import visualize_population_and_best
 from model.logger import TensorFlowLogger
 from model.checkpoint import CheckpointManager
 
@@ -25,83 +30,98 @@ def choose_action(
     device: str,
 ) -> Action:
     with torch.inference_mode():
-        out = forward(genome, state_tensor.unsqueeze(0)).squeeze(0)  # [4]
+        out = forward(genome, state_tensor.unsqueeze(0)).squeeze(0)
 
     logits = out[:3]
 
-    valid_logits = []
-    if bounds["can_fold"]:
-        valid_logits.append((logits[0].item(), 0))
-    if bounds["can_call"]:
-        valid_logits.append((logits[1].item(), 1))
-    if bounds["can_raise"]:
-        valid_logits.append((logits[2].item(), 2))
+    # avoid CPU-GPU syncs from .item()
+    valid_mask = torch.tensor(
+        [
+            bounds["can_fold"],
+            bounds["can_call"],
+            bounds["can_raise"],
+        ],
+        dtype=torch.bool,
+        device=logits.device,
+    )
 
-    if not valid_logits:
-        type_picked = 0 if bounds["can_fold"] else 1
-    else:
-        best_action = max(valid_logits, key=lambda x: x[0])
-        type_picked = best_action[1]
+    # mask invalid actions with negative logits
+    masked_logits = torch.where(
+        valid_mask,
+        logits,
+        torch.full_like(logits, -1e9),
+    )
+
+    type_picked = int(torch.argmax(masked_logits).item())
 
     amount = 0
-    if type_picked == 2:  # Raise
+
+    if type_picked == 2:  # raise
         size_out = torch.sigmoid(out[3]).item()
+
         min_r = bounds["raise_amount_min"]
         max_r = bounds["raise_amount_max"]
+
         amount = int(min_r + size_out * (max_r - min_r))
 
     return Action(
         player=state_dict["acting_idx"],
-        street=state_dict[
-            "street"
-        ],  # this is actually an Enum string conceptually or the value
+        street=state_dict["street"],
         type=type_picked,
         amount=amount,
     )
 
 
-def evaluate_poker_population(
-    population: list[Genome], config_hands_per_table: int, device: str
-):
-    # init fitness
-    for g in population:
-        g.fitness_score = torch.tensor(0.0, device=device)
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing as mp
+import copy
 
-    # group into tables of 6
-    pop_indices = list(range(len(population)))
-    random.shuffle(pop_indices)
 
-    table_size = 6
-    num_tables = len(population) // table_size
+def evaluate_table(args):
 
-    for t_idx in range(num_tables):
-        table_members = pop_indices[t_idx * table_size : (t_idx + 1) * table_size]
-        genomes = [population[i] for i in table_members]
+    table_genomes, config_hands_per_table = args
 
-        obs = Observation()
+    # CPU is usually faster for tiny networks due to CUDA overhead
+    worker_device = "cpu"
 
-        for _ in range(config_hands_per_table):
-            obs.reset()
-            state_dict = obs.get_state()
+    genomes = [copy.deepcopy(g) for g in table_genomes]
 
-            start_stacks = [p["stack"] for p in state_dict["players"]]
+    obs = Observation()
 
-            while not state_dict["hand_over"]:
-                player_idx = state_dict["acting_idx"]
-                if player_idx is None:
-                    break
+    table_fitness = [0.0 for _ in genomes]
 
-                genome = genomes[player_idx]
-                tensor_input = obs.get_tensor_input(player_idx).to(device)
-                bounds = obs.get_action_bounds()
+    for _ in range(config_hands_per_table):
+        obs.reset()
+        state_dict = obs.get_state()
 
-                action = choose_action(genome, tensor_input, bounds, state_dict, device)
+        start_stacks = [p["stack"] for p in state_dict["players"]]
+
+        while not state_dict["hand_over"]:
+            player_idx = state_dict["acting_idx"]
+
+            if player_idx is None:
+                break
+
+            genome = genomes[player_idx]
+
+            tensor_input = obs.get_tensor_input(player_idx).to(worker_device)
+            bounds = obs.get_action_bounds()
+
+            action = choose_action(
+                genome,
+                tensor_input,
+                bounds,
+                state_dict,
+                worker_device,
+            )
+
+            try:
+                obs.send_action(action)
+
+            except Exception:
+                table_fitness[player_idx] -= 1000.0  #  penalty on invalid actions
 
                 try:
-                    obs.send_action(action)
-                except Exception as e:
-                    genome.fitness_score -= 1000.0
-
                     if bounds["can_fold"]:
                         obs.send_action(
                             Action(
@@ -111,6 +131,7 @@ def evaluate_poker_population(
                                 amount=0,
                             )
                         )
+
                     elif bounds["can_call"]:
                         obs.send_action(
                             Action(
@@ -120,30 +141,100 @@ def evaluate_poker_population(
                                 amount=0,
                             )
                         )
+
                     else:
-                        break  # unrecoverable, stop hand
+                        break
 
-                state_dict = obs.get_state()
+                except Exception:
+                    break
 
-            end_stacks = [p["stack"] for p in state_dict["players"]]
-            for i, genome in enumerate(genomes):
-                delta = end_stacks[i] - start_stacks[i]
-                genome.fitness_score += delta
+            state_dict = obs.get_state()
 
-    # norm fitness to be strictly positive (since NEAT requires it for selection)
+        end_stacks = [p["stack"] for p in state_dict["players"]]
+
+        for i in range(len(genomes)):
+            delta = end_stacks[i] - start_stacks[i]
+            table_fitness[i] += delta
+
+    return table_fitness
+
+
+def evaluate_poker_population(
+    population: list[Genome],
+    config_hands_per_table: int,
+    device: str,
+):
+    for g in population:  # init fitness
+        g.fitness_score = torch.tensor(0.0, device=device)
+
+    table_size = 6
+
+    # shuffle seating
+    pop_indices = list(range(len(population)))
+    random.shuffle(pop_indices)
+
+    num_tables = len(population) // table_size
+
+    table_jobs = []
+
+    for t_idx in range(num_tables):
+        table_members = pop_indices[t_idx * table_size : (t_idx + 1) * table_size]
+
+        genomes = [population[i] for i in table_members]
+
+        table_jobs.append((table_members, genomes))
+
+    worker_args = [(genomes, config_hands_per_table) for _, genomes in table_jobs]
+
+    max_workers = min(os.cpu_count() or 1, num_tables)
+
+    # use for CUDA
+    ctx = mp.get_context("spawn")
+
+    with ProcessPoolExecutor(
+        max_workers=max_workers,
+        mp_context=ctx,
+    ) as executor:
+
+        futures = {
+            executor.submit(evaluate_table, args): idx
+            for idx, args in enumerate(worker_args)
+        }
+
+        for future in as_completed(futures):
+            table_idx = futures[future]
+
+            table_members, _ = table_jobs[table_idx]
+
+            try:
+                deltas = future.result()
+
+                for local_idx, genome_idx in enumerate(table_members):
+                    population[genome_idx].fitness_score += deltas[local_idx]
+
+            except Exception as e:
+                print(f"Table worker failed: {e}")
+
+                # penalize failed table
+                for genome_idx in table_members:
+                    population[genome_idx].fitness_score -= 1000.0
+
     min_fitness = min(g.fitness_score.item() for g in population)
+
     shift = abs(min_fitness) + 1.0 if min_fitness <= 0 else 0.0
-    for g in population:
-        g.fitness_score += shift
+
+    if shift > 0:
+        for g in population:
+            g.fitness_score += shift
 
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}\n")
 
-    population_size = 480  # divisible by 6
+    population_size = 300  # divisible by 6
     num_generations = 10_000
-    config_hands_per_table = 20  # Number of hands evaluated per match
+    config_hands_per_table = 6
 
     print("Initializing poker population...")
     population = [
@@ -248,13 +339,13 @@ def main():
         species_sizes = {s.id: len(s.members) for s in species_list}
         species_sizes_history.append(species_sizes)
 
-        fig = None
-        if (gen + 1) % 5 == 0 or gen == num_generations - 1:
-            fig = visualize_population_and_best(
-                population, best_overall, generation=gen + 1, species_list=species_list
-            )
-        if (gen + 1) % 100 == 0 and fig is not None:
-            logger.log_figure("viz/population_and_best", fig, gen + 1)
+        # fig = None
+        # if (gen + 1) % 5 == 0 or gen == num_generations - 1:
+        #     fig = visualize_population_and_best(
+        #         population, best_overall, generation=gen + 1, species_list=species_list
+        #     )
+        # if (gen + 1) % 100 == 0 and fig is not None:
+        #     logger.log_figure("viz/population_and_best", fig, gen + 1)
 
     print("\n" + "=" * 60)
     print("Training complete!")
