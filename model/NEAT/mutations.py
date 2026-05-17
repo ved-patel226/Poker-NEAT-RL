@@ -1,11 +1,6 @@
 import random
 import torch
 
-try:
-    from .genome_operations_torch import compute_topological_order
-except ImportError:
-    from genome_operations_torch import compute_topological_order
-
 # TODO: expirement with more interesting mutations
 
 
@@ -31,9 +26,28 @@ def add_connection(genome, tracker):
     existing = set(map(tuple, genome.connections.conn_indices.tolist()))
 
     node_ids = genome.nodes.node_ids.tolist()
+    node_types = {
+        int(node_id): int(node_type)
+        for node_id, node_type in zip(node_ids, genome.nodes.node_types.tolist())
+    }
+
+    def is_valid_source_target(in_node, out_node):
+        in_type = node_types[int(in_node)]
+        out_type = node_types[int(out_node)]
+
+        # keep the graph feed-forward: inputs/bias/hidden can drive hidden/output,
+        # hidden->hidden is only allowed in creation order.
+        if in_type == 2 or out_type in (0, 3):
+            return False
+        if in_type == 1 and out_type == 1:
+            return int(in_node) < int(out_node)
+        return out_type in (1, 2)
 
     candidates = [
-        (a, b) for a in node_ids for b in node_ids if a != b and (a, b) not in existing
+        (a, b)
+        for a in node_ids
+        for b in node_ids
+        if a != b and (a, b) not in existing and is_valid_source_target(a, b)
     ]
 
     if not candidates:
@@ -58,7 +72,6 @@ def add_connection(genome, tracker):
         [genome.connections.conn_innovation, torch.tensor([innovation], device=device)]
     )
 
-    genome.topological_order = compute_topological_order(genome)
     return genome
 
 
@@ -110,7 +123,6 @@ def add_node(genome, tracker):
             [genome.connections.conn_innovation, torch.tensor([innov], device=device)]
         )
 
-    genome.topological_order = compute_topological_order(genome)
     return genome
 
 

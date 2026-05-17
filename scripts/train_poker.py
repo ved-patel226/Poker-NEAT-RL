@@ -94,7 +94,7 @@ def evaluate_table(args):
         obs.reset()
         state_dict = obs.get_state()
 
-        start_stacks = [p["stack"] for p in state_dict["players"]]
+        start_stacks = [obs.nominal_stack for _ in state_dict["players"]]
 
         while not state_dict["hand_over"]:
             player_idx = state_dict["acting_idx"]
@@ -119,7 +119,7 @@ def evaluate_table(args):
                 obs.send_action(action)
 
             except Exception:
-                table_fitness[player_idx] -= 1000.0  #  penalty on invalid actions
+                table_fitness[player_idx] -= 1000.0  # penalty on invalid actions
 
                 try:
                     if bounds["can_fold"]:
@@ -186,10 +186,10 @@ def evaluate_poker_population(
 
     worker_args = [(genomes, config_hands_per_table) for _, genomes in table_jobs]
 
-    max_workers = min(os.cpu_count() or 1, num_tables)
+    max_workers = min(8, num_tables)
 
     # use for CUDA
-    ctx = mp.get_context("spawn")
+    ctx = mp.get_context("fork")
 
     with ProcessPoolExecutor(
         max_workers=max_workers,
@@ -229,12 +229,13 @@ def evaluate_poker_population(
 
 
 def main():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     print(f"Using device: {device}\n")
 
     population_size = 300  # divisible by 6
     num_generations = 10_000
-    config_hands_per_table = 6
+    config_hands_per_table = 200
 
     print("Initializing poker population...")
     population = [

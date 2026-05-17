@@ -26,25 +26,19 @@ RANK_ORDER = [
 SUIT_ORDER = ["CLUB", "DIAMOND", "HEART", "SPADE"]
 
 
-def make_card_dict(card) -> dict:
-    r_name = card.rank.name
-    s_name = card.suit.name
-
-    rank_oh = [0] * 13
-    if r_name in RANK_ORDER:
-        rank_oh[RANK_ORDER.index(r_name)] = 1
-
-    suit_oh = [0] * 4
-    if s_name in SUIT_ORDER:
-        suit_oh[SUIT_ORDER.index(s_name)] = 1
-
-    return {"rank_one_hot": rank_oh, "suit_one_hot": suit_oh}
+def make_card_vec(card) -> list[float]:
+    rank = RANK_ORDER.index(card.rank.name) / 12.0
+    suit = SUIT_ORDER.index(card.suit.name) / 3.0
+    return [rank, suit]
 
 
 class Observation:
     def __init__(self, config=None):
         if config:
             print("Config isn't supported right now...")
+
+        self.starting_stacks = (10000, 10000, 10000, 10000, 10000, 10000)
+        self.nominal_stack = self.starting_stacks[0]
 
         self.reset()
 
@@ -66,7 +60,7 @@ class Observation:
             {-1: 600},  # 600 ante
             (200, 400, 800),
             400,  # min-bet
-            (10000, 10000, 10000, 10000, 10000, 10000),  # starting stacks
+            self.starting_stacks,  # starting stacks
             6,  # number of players
             mode=Mode.CASH_GAME,
         )
@@ -88,7 +82,7 @@ class Observation:
             hole_c = self.state.hole_cards
             hc_dicts = []
             if i < len(hole_c) and hole_c[i]:
-                hc_dicts = [make_card_dict(c) for c in hole_c[i]]
+                hc_dicts = [make_card_vec(c) for c in hole_c[i]]
 
             folded = not self.state.statuses[i]
             contributed = self.state.bets[i] if self.state.bets else 0
@@ -112,7 +106,7 @@ class Observation:
             except TypeError:  # otherwise js append
                 flat_board.append(item)
 
-        board = [make_card_dict(c) for c in flat_board]
+        board = [make_card_vec(c) for c in flat_board]
 
         acting_idx = self.state.actor_index
 
@@ -181,21 +175,22 @@ class Observation:
     def get_tensor_input(self, player_idx: int = None) -> torch.Tensor:
         state = self.get_state()
 
-        x = torch.zeros(314, dtype=torch.float32)
+        x = torch.zeros(59, dtype=torch.float32)
+        scalar_scale = float(max(self.nominal_stack, 1))
 
         ptr = 0
 
-        x[ptr] = float(state["pot"])
+        # GLOBAL
+        x[ptr] = float(state["pot"]) / scalar_scale
         ptr += 1
 
-        x[ptr] = float(state["current_bet"])
+        x[ptr] = float(state["current_bet"]) / scalar_scale
         ptr += 1
 
-        x[ptr] = float(state["min_raise"])
+        x[ptr] = float(state["min_raise"]) / scalar_scale
         ptr += 1
 
         street = state["street"].value
-
         if street == "Preflop":
             x[ptr] = 1.0
         elif street == "Flop":
@@ -204,54 +199,52 @@ class Observation:
             x[ptr + 2] = 1.0
         elif street == "River":
             x[ptr + 3] = 1.0
-        else:
-            x[ptr] = 1.0
-
         ptr += 4
 
+        # BOARD
         board = state["board"]
 
-        for i in range(min(len(board), 5)):
-            c = board[i]
+        for i in range(5):
+            if i < len(board):
+                vec = board[i]
+                x[ptr] = vec[0]
+                x[ptr + 1] = vec[1]
+            ptr += 2
 
-            rank = c["rank_one_hot"]
-            suit = c["suit_one_hot"]
+        # SELF
+        me = state["players"][player_idx]
 
-            x[ptr : ptr + 13] = torch.tensor(rank)
-            x[ptr + 13 : ptr + 17] = torch.tensor(suit)
+        x[ptr] = me["stack"] / scalar_scale
+        ptr += 1
 
-            ptr += 17
+        x[ptr] = float(me["folded"])
+        ptr += 1
 
-        ptr += (5 - len(board)) * 17
+        x[ptr] = me["contributed_street"] / scalar_scale
+        ptr += 1
 
+        hole_cards = me["hole_cards"]
+
+        for i in range(2):
+            if i < len(hole_cards):
+                vec = hole_cards[i]
+                x[ptr] = vec[0]
+                x[ptr + 1] = vec[1]
+            ptr += 2
+
+        # OPPONENTS (public only info ofc)
         for p in state["players"]:
+            if p["index"] == player_idx:
+                continue
 
-            x[ptr] = float(p["stack"])
+            x[ptr] = p["stack"] / scalar_scale
             ptr += 1
 
             x[ptr] = float(p["folded"])
             ptr += 1
 
-            x[ptr] = float(p["contributed_street"])
+            x[ptr] = p["contributed_street"] / scalar_scale
             ptr += 1
-
-            visible_cards = player_idx is None or player_idx == p["index"]
-
-            hole_cards = p["hole_cards"]
-
-            for i in range(2):
-
-                if i < len(hole_cards) and visible_cards:
-
-                    c = hole_cards[i]
-
-                    rank = c["rank_one_hot"]
-                    suit = c["suit_one_hot"]
-
-                    x[ptr : ptr + 13] = torch.tensor(rank)
-                    x[ptr + 13 : ptr + 17] = torch.tensor(suit)
-
-                ptr += 17
 
         return x
 

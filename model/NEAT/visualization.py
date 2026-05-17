@@ -5,12 +5,6 @@ import numpy as np
 from collections import deque
 import random
 
-try:
-    from .genome_operations_torch import compute_topological_order
-except:
-    from genome_operations_torch import compute_topological_order
-
-
 plt.ion()
 _fig = None
 _ax1 = None

@@ -42,9 +42,7 @@ def forward(genome: Genome, x: torch.Tensor) -> torch.Tensor:
     if bias_indices.numel() > 0:
         values[bias_indices] = 1.0
 
-    if not hasattr(genome, "topological_order") or genome.topological_order is None:
-        genome.topological_order = compute_topological_order(genome)
-    order = genome.topological_order
+    order = compute_topological_order(genome)
 
     for node_idx in order:
         if input_mask[node_idx] or bias_mask[node_idx]:  # dont do input/bias nodes
@@ -229,7 +227,6 @@ def create_genome(
         connections=connections,
         fitness_score=torch.tensor(0.0, device=device),
     )
-    genome.topological_order = compute_topological_order(genome)
     return genome
 
 
