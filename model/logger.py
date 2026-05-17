@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
 import random
+import json
 
 
 class TensorFlowLogger:
@@ -56,13 +57,19 @@ class TensorFlowLogger:
         )
 
     def log_hands(self, generation: int, traces: list[dict]):
-        random_idx = random.randrange(len(traces))
+        if not traces:
+            return
 
-        self.writer.add_scalars(
-            "hands/states", [x["state"] for x in traces[random_idx]], generation
-        )
-        self.writer.add_scalars(
-            "hands/actions", [x["action"] for x in traces[random_idx]], generation
+        random_idx = random.randrange(len(traces))
+        trace = traces[random_idx]
+
+        if not trace:
+            return
+
+        self.writer.add_text(
+            "hands/example",
+            json.dumps(trace, default=str, indent=2),
+            generation,
         )
 
     def log_figure(self, tag: str, figure, step: int):

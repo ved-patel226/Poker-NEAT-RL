@@ -19,7 +19,12 @@ except:
     from data_structures import Species
 
 
-print(os.environ)
+def _env_float(name: str, default: float) -> float:
+    return float(os.environ.get(name, default))
+
+
+def _env_int(name: str, default: int) -> int:
+    return int(os.environ.get(name, default))
 
 
 def compatibility_distance(genome_a, genome_b):
@@ -65,17 +70,20 @@ def compatibility_distance(genome_a, genome_b):
     W = sum(weight_diffs) / len(weight_diffs) if weight_diffs else 0.0
 
     return (
-        (float(os.environ["NEAT.C1"]) * excess / N)
-        + (float(os.environ["NEAT.C2"]) * disjoint / N)
-        + (float(os.environ["NEAT.C3"]) * W)
+        (_env_float("NEAT_C1", 1.0) * excess / N)
+        + (_env_float("NEAT_C2", 1.0) * disjoint / N)
+        + (_env_float("NEAT_C3", 0.4) * W)
     )
 
 
-CURRENT_THRESHOLD = float(os.environ["NEAT.DELTA_THRESHOLD"])
+CURRENT_THRESHOLD = None
 
 
 def speciate(population, existing_species):
     global CURRENT_THRESHOLD
+
+    if CURRENT_THRESHOLD is None:
+        CURRENT_THRESHOLD = _env_float("NEAT_DELTA_THRESHOLD", 0.5)
 
     # clear members, keep representatives + history
     for s in existing_species:
@@ -132,6 +140,8 @@ def adjust_fitness(species_list):
 # if the species isn't improving, remove them
 def remove_stale_species(species_list):
     survivors = []
+    stale_limit = _env_int("NEAT_STALE_LIMIT", 20)
+
     for species in species_list:
         best = max(g.fitness_score.item() for g in species.members)
 
@@ -141,7 +151,7 @@ def remove_stale_species(species_list):
         else:
             species.generations_stale += 1
 
-        if species.generations_stale < os.environ["NEAT.STALE_LIMIT"]:
+        if species.generations_stale < stale_limit:
             survivors.append(species)
 
     return survivors

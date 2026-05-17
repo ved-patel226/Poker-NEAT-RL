@@ -121,8 +121,17 @@ def evaluate_table(args):
                 worker_device,
             )
 
+            hand_log.append(
+                {
+                    "player": player_idx,
+                    "state": state_dict,
+                    "action": asdict(action),
+                }
+            )
+
             try:
                 obs.send_action(action)
+                state_dict = obs.get_state()
 
             except Exception:
                 table_fitness[player_idx] -= 1000.0  # penalty on invalid actions
@@ -152,16 +161,9 @@ def evaluate_table(args):
                     break
 
                 state_dict = obs.get_state()
-                hand_log.append(
-                    {
-                        "player": player_idx,
-                        "state": state_dict,
-                        "action": asdict(action),
-                    }
-                )
                 obs.send_action(action)
 
-            traces.append(hand_log)
+        traces.append(hand_log)
 
         end_stacks = [p["stack"] for p in state_dict["players"]]
 
@@ -176,6 +178,7 @@ def evaluate_poker_population(
     population: list[Genome],
     config_hands_per_table: int,
     device: str,
+    generation: int,
     logger: TensorFlowLogger,
 ):
     for g in population:  # init fitness
@@ -222,7 +225,7 @@ def evaluate_poker_population(
 
             try:
                 deltas, traces = future.result()
-                logger.log_hands(traces)
+                logger.log_hands(generation, traces)
 
                 for local_idx, genome_idx in enumerate(table_members):
                     population[genome_idx].fitness_score += deltas[local_idx]
@@ -265,7 +268,7 @@ def main():
     print("Initializing poker population...")
     population = [
         create_genome(input_nodes=39, hidden_nodes=0, output_nodes=4, device=device)
-        for _ in range(int(os.environ["ENV.POPULATION_SIZE"]))
+        for _ in range(int(os.environ["ENV_POPULATION_SIZE"]))
     ]
 
     tracker = InnovationTracker()
@@ -275,8 +278,8 @@ def main():
         checkpoint_dir=os.path.join(logger.log_dir, "checkpoints")
     )
 
-    print(f"Population size: {int(os.environ['ENV.POPULATION_SIZE'])}")
-    print(f"Generations: {int(os.environ['ENV.NUM_GENERATIONS'])}\n")
+    print(f"Population size: {int(os.environ['ENV_POPULATION_SIZE'])}")
+    print(f"Generations: {int(os.environ['ENV_NUM_GENERATIONS'])}\n")
     print("=" * 60)
 
     best_overall = None
@@ -288,13 +291,17 @@ def main():
     stdev_fitnesses = []
     species_sizes_history = []
 
-    for gen in range(int(os.environ["ENV.NUM_GENERATIONS"])):
-        print(f"\nGeneration {gen + 1}/{int(os.environ['ENV.NUM_GENERATIONS'])}")
+    for gen in range(int(os.environ["ENV_NUM_GENERATIONS"])):
+        print(f"\nGeneration {gen + 1}/{int(os.environ['ENV_NUM_GENERATIONS'])}")
         print("-" * 60)
 
         # eval entire population via self-play tables
         evaluate_poker_population(
-            population, int(os.environ["ENV.CONFIG_HANDS_PER_TABLE"]), device, logger
+            population,
+            int(os.environ["ENV_CONFIG_HANDS_PER_TABLE"]),
+            device,
+            gen,
+            logger,
         )
 
         def evaluate_fn(genome: Genome) -> torch.Tensor:
@@ -375,7 +382,7 @@ def main():
     print(f"  - Connections: {best_overall.connections.conn_indices.shape[0]}")
 
     final_checkpoint_path = checkpoint_manager.save_best_genome(
-        best_overall, int(os.environ["ENV.NUM_GENERATIONS"]), best_overall_fitness
+        best_overall, int(os.environ["ENV_NUM_GENERATIONS"]), best_overall_fitness
     )
     print(f"Saved final best genome: {final_checkpoint_path}")
     logger.close()
