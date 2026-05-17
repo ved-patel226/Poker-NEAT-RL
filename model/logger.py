@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
-import random
 import json
 
 
@@ -60,16 +59,54 @@ class TensorFlowLogger:
         if not traces:
             return
 
-        random_idx = random.randrange(len(traces))
-        trace = traces[random_idx]
+        sample_count = min(3, len(traces))
+        sample_indices = list(range(sample_count))
 
-        if not trace:
-            return
+        for sample_idx in sample_indices:
+            trace = traces[sample_idx]
+            if not trace:
+                continue
 
-        self.writer.add_text(
-            "hands/example",
-            json.dumps(trace, default=str, indent=2),
-            generation,
+            self.writer.add_text(
+                f"hands/g{generation:05d}/sample_{sample_idx}",
+                self._format_hand_trace(trace),
+                generation,
+            )
+
+    def _format_hand_trace(self, trace: list[dict]) -> str:
+        lines = [f"# Hand trace ({len(trace)} actions)", ""]
+
+        for step_idx, event in enumerate(trace, start=1):
+            state = event["state"]
+            action = event["action"]
+            lines.append(
+                f"{step_idx}. P{event['player']} -> action={self._action_name(action['type'])} "
+                f"amount={action['amount']} | street={state['street']} | pot={state['pot']} | "
+                f"current_bet={state['current_bet']} | stacks={self._stack_summary(state)}"
+            )
+
+        final_state = trace[-1]["state"]
+        lines.extend(
+            [
+                "",
+                "## Final State",
+                f"- street: {final_state['street']}",
+                f"- pot: {final_state['pot']}",
+                f"- acting_idx: {final_state['acting_idx']}",
+                f"- winner: {final_state['winner']}",
+                f"- hand_over: {final_state['hand_over']}",
+            ]
+        )
+
+        return "\n".join(lines)
+
+    def _stack_summary(self, state: dict) -> str:
+        players = state.get("players", [])
+        return ", ".join(f"P{player['index']}:{player['stack']}" for player in players)
+
+    def _action_name(self, action_type: int) -> str:
+        return {0: "fold", 1: "call", 2: "raise"}.get(
+            action_type, f"type_{action_type}"
         )
 
     def log_figure(self, tag: str, figure, step: int):
