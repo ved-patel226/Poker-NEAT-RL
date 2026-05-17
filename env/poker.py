@@ -146,7 +146,7 @@ class Observation:
     def send_action(self, action: Action) -> None:
         if self.state.actor_index != action.player:
             raise ValueError(
-                f"Player {action.player} acted out of turn. It is player {self.state.actor_index}'s turn."
+                f"{action.player} acted out of turn. It is player {self.state.actor_index}'s turn."
             )
 
         if action.type == 0:  # fold
@@ -175,7 +175,7 @@ class Observation:
     def get_tensor_input(self, player_idx: int = None) -> torch.Tensor:
         state = self.get_state()
 
-        x = torch.zeros(59, dtype=torch.float32)
+        x = torch.zeros(39, dtype=torch.float32)
         scalar_scale = float(max(self.nominal_stack, 1))
 
         ptr = 0

@@ -11,13 +11,15 @@ If δ < threshold, its the same species
 """
 
 import random
+import os
 
 try:
-    from .config import C1, C2, C3, DELTA_THRESHOLD, STALE_LIMIT
     from .data_structures import Species
 except:
-    from config import C1, C2, C3, DELTA_THRESHOLD, STALE_LIMIT
     from data_structures import Species
+
+
+print(os.environ)
 
 
 def compatibility_distance(genome_a, genome_b):
@@ -62,10 +64,14 @@ def compatibility_distance(genome_a, genome_b):
     N = max(len(genes_a), len(genes_b), 1)
     W = sum(weight_diffs) / len(weight_diffs) if weight_diffs else 0.0
 
-    return (C1 * excess / N) + (C2 * disjoint / N) + (C3 * W)
+    return (
+        (float(os.environ["NEAT.C1"]) * excess / N)
+        + (float(os.environ["NEAT.C2"]) * disjoint / N)
+        + (float(os.environ["NEAT.C3"]) * W)
+    )
 
 
-CURRENT_THRESHOLD = DELTA_THRESHOLD
+CURRENT_THRESHOLD = float(os.environ["NEAT.DELTA_THRESHOLD"])
 
 
 def speciate(population, existing_species):
@@ -135,7 +141,7 @@ def remove_stale_species(species_list):
         else:
             species.generations_stale += 1
 
-        if species.generations_stale < STALE_LIMIT:
+        if species.generations_stale < os.environ["NEAT.STALE_LIMIT"]:
             survivors.append(species)
 
     return survivors

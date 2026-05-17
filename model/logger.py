@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 from torch.utils.tensorboard import SummaryWriter
+import random
 
 
 class TensorFlowLogger:
@@ -52,6 +53,16 @@ class TensorFlowLogger:
         self.writer.add_scalar("population/fitness_std", fitness_std, generation)
         self.writer.add_scalar(
             "population/avg_fitness_per_species", avg_fitness_per_species, generation
+        )
+
+    def log_hands(self, generation: int, traces: list[dict]):
+        random_idx = random.randrange(len(traces))
+
+        self.writer.add_scalars(
+            "hands/states", [x["state"] for x in traces[random_idx]], generation
+        )
+        self.writer.add_scalars(
+            "hands/actions", [x["action"] for x in traces[random_idx]], generation
         )
 
     def log_figure(self, tag: str, figure, step: int):

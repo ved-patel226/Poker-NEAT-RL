@@ -11,6 +11,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from model.NEAT.data_structures import Genome, InnovationTracker
+
 from model.NEAT.genome_operations_torch import create_genome, forward
 from model.NEAT.evolution import run_generation
 
@@ -20,6 +21,14 @@ from model.checkpoint import CheckpointManager
 
 from env.poker import Observation
 from env.states import Action
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing as mp
+import copy
+
+from dataclasses import asdict
+
+from envyaml import EnvYAML
 
 
 def choose_action(
@@ -72,16 +81,12 @@ def choose_action(
     )
 
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import multiprocessing as mp
-import copy
-
-
 def evaluate_table(args):
 
     table_genomes, config_hands_per_table = args
+    traces = []
 
-    # CPU is usually faster for tiny networks due to CUDA overhead
+    # CPU is faster for tiny nets
     worker_device = "cpu"
 
     genomes = [copy.deepcopy(g) for g in table_genomes]
@@ -90,7 +95,8 @@ def evaluate_table(args):
 
     table_fitness = [0.0 for _ in genomes]
 
-    for _ in range(config_hands_per_table):
+    for hand_idx in range(config_hands_per_table):
+        hand_log = []
         obs.reset()
         state_dict = obs.get_state()
 
@@ -123,32 +129,39 @@ def evaluate_table(args):
 
                 try:
                     if bounds["can_fold"]:
-                        obs.send_action(
-                            Action(
-                                player=player_idx,
-                                street=state_dict["street"],
-                                type=0,
-                                amount=0,
-                            )
+                        action = Action(
+                            player=player_idx,
+                            street=state_dict["street"],
+                            type=0,
+                            amount=0,
                         )
 
                     elif bounds["can_call"]:
-                        obs.send_action(
-                            Action(
-                                player=player_idx,
-                                street=state_dict["street"],
-                                type=1,
-                                amount=0,
-                            )
+                        action = Action(
+                            player=player_idx,
+                            street=state_dict["street"],
+                            type=1,
+                            amount=0,
                         )
 
                     else:
+                        print("INVALID ACTION: can't fold or call")
                         break
 
                 except Exception:
                     break
 
-            state_dict = obs.get_state()
+                state_dict = obs.get_state()
+                hand_log.append(
+                    {
+                        "player": player_idx,
+                        "state": state_dict,
+                        "action": asdict(action),
+                    }
+                )
+                obs.send_action(action)
+
+            traces.append(hand_log)
 
         end_stacks = [p["stack"] for p in state_dict["players"]]
 
@@ -156,13 +169,14 @@ def evaluate_table(args):
             delta = end_stacks[i] - start_stacks[i]
             table_fitness[i] += delta
 
-    return table_fitness
+    return table_fitness, traces
 
 
 def evaluate_poker_population(
     population: list[Genome],
     config_hands_per_table: int,
     device: str,
+    logger: TensorFlowLogger,
 ):
     for g in population:  # init fitness
         g.fitness_score = torch.tensor(0.0, device=device)
@@ -207,7 +221,8 @@ def evaluate_poker_population(
             table_members, _ = table_jobs[table_idx]
 
             try:
-                deltas = future.result()
+                deltas, traces = future.result()
+                logger.log_hands(traces)
 
                 for local_idx, genome_idx in enumerate(table_members):
                     population[genome_idx].fitness_score += deltas[local_idx]
@@ -228,19 +243,29 @@ def evaluate_poker_population(
             g.fitness_score += shift
 
 
+def set_env_recursive(d, prefix=""):
+    for k, v in d.items():
+        key = f"{prefix}_{k.upper()}" if prefix else k.upper()
+        if isinstance(v, dict):
+            set_env_recursive(v, key)
+        else:
+            os.environ[key] = str(v)
+
+
 def main():
+    import os
+
+    env = EnvYAML(yaml_file="config.yaml")
+    set_env_recursive(dict(env))
+
     # device = "cuda" if torch.cuda.is_available() else "cpu"
     device = "cpu"
     print(f"Using device: {device}\n")
 
-    population_size = 300  # divisible by 6
-    num_generations = 10_000
-    config_hands_per_table = 200
-
     print("Initializing poker population...")
     population = [
-        create_genome(input_nodes=314, hidden_nodes=0, output_nodes=4, device=device)
-        for _ in range(population_size)
+        create_genome(input_nodes=39, hidden_nodes=0, output_nodes=4, device=device)
+        for _ in range(int(os.environ["ENV.POPULATION_SIZE"]))
     ]
 
     tracker = InnovationTracker()
@@ -250,8 +275,8 @@ def main():
         checkpoint_dir=os.path.join(logger.log_dir, "checkpoints")
     )
 
-    print(f"Population size: {population_size}")
-    print(f"Generations: {num_generations}\n")
+    print(f"Population size: {int(os.environ['ENV.POPULATION_SIZE'])}")
+    print(f"Generations: {int(os.environ['ENV.NUM_GENERATIONS'])}\n")
     print("=" * 60)
 
     best_overall = None
@@ -263,12 +288,14 @@ def main():
     stdev_fitnesses = []
     species_sizes_history = []
 
-    for gen in range(num_generations):
-        print(f"\nGeneration {gen + 1}/{num_generations}")
+    for gen in range(int(os.environ["ENV.NUM_GENERATIONS"])):
+        print(f"\nGeneration {gen + 1}/{int(os.environ['ENV.NUM_GENERATIONS'])}")
         print("-" * 60)
 
         # eval entire population via self-play tables
-        evaluate_poker_population(population, config_hands_per_table, device)
+        evaluate_poker_population(
+            population, int(os.environ["ENV.CONFIG_HANDS_PER_TABLE"]), device, logger
+        )
 
         def evaluate_fn(genome: Genome) -> torch.Tensor:
             return genome.fitness_score.clone().detach()
@@ -320,7 +347,6 @@ def main():
                 species_avg,
             )
 
-        all_fitnesses = [g.fitness_score.item() for g in population]
         if species_list:
             avg_fitness_per_species = np.mean(
                 [
@@ -340,14 +366,6 @@ def main():
         species_sizes = {s.id: len(s.members) for s in species_list}
         species_sizes_history.append(species_sizes)
 
-        # fig = None
-        # if (gen + 1) % 5 == 0 or gen == num_generations - 1:
-        #     fig = visualize_population_and_best(
-        #         population, best_overall, generation=gen + 1, species_list=species_list
-        #     )
-        # if (gen + 1) % 100 == 0 and fig is not None:
-        #     logger.log_figure("viz/population_and_best", fig, gen + 1)
-
     print("\n" + "=" * 60)
     print("Training complete!")
     print(f"Final best fitness: {best_overall_fitness:.6f}")
@@ -357,7 +375,7 @@ def main():
     print(f"  - Connections: {best_overall.connections.conn_indices.shape[0]}")
 
     final_checkpoint_path = checkpoint_manager.save_best_genome(
-        best_overall, num_generations, best_overall_fitness
+        best_overall, int(os.environ["ENV.NUM_GENERATIONS"]), best_overall_fitness
     )
     print(f"Saved final best genome: {final_checkpoint_path}")
     logger.close()
