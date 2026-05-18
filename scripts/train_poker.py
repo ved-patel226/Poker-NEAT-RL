@@ -5,6 +5,7 @@ warnings.filterwarnings("ignore", message="There is no reason for this player to
 import sys
 import os
 import torch
+import torch.multiprocessing as torch_mp
 import random
 import numpy as np
 
@@ -22,13 +23,15 @@ from model.checkpoint import CheckpointManager
 from env.poker import Observation
 from env.states import Action
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import multiprocessing as mp
 import copy
 
 from dataclasses import asdict
 
 from envyaml import EnvYAML
+
+torch_mp.set_sharing_strategy("file_system")
 
 
 def choose_action(
@@ -82,11 +85,11 @@ def choose_action(
 
 
 def evaluate_table(args):
-
     table_genomes, config_hands_per_table = args
     traces = []
 
     # CPU is faster for tiny nets
+    # TODO: can we try to make cuda faster by batching or nah?
     worker_device = "cpu"
 
     genomes = [copy.deepcopy(g) for g in table_genomes]
@@ -95,7 +98,7 @@ def evaluate_table(args):
 
     table_fitness = [0.0 for _ in genomes]
 
-    for hand_idx in range(config_hands_per_table):
+    for _ in range(config_hands_per_table):
         hand_log = []
         obs.reset()
         state_dict = obs.get_state()
@@ -168,8 +171,9 @@ def evaluate_table(args):
         end_stacks = [p["stack"] for p in state_dict["players"]]
 
         for i in range(len(genomes)):
-            delta = end_stacks[i] - start_stacks[i]
-            table_fitness[i] += delta
+            table_fitness[i] += float(
+                end_stacks[i]
+            )  # TODO: make sure ts works (if not, delta???)
 
     return table_fitness, traces
 
@@ -180,6 +184,7 @@ def evaluate_poker_population(
     device: str,
     generation: int,
     logger: TensorFlowLogger,
+    log_hands_every: int = 1,
 ):
     for g in population:  # init fitness
         g.fitness_score = torch.tensor(0.0, device=device)
@@ -203,15 +208,18 @@ def evaluate_poker_population(
 
     worker_args = [(genomes, config_hands_per_table) for _, genomes in table_jobs]
 
-    max_workers = min(8, num_tables)
+    max_workers = max(1, min(8, num_tables))
 
-    # use for CUDA
-    ctx = mp.get_context("fork")
+    # CPU self-play is better served by threads here: it avoids shipping many
+    # tensor-backed Genome objects through multiprocessing shared memory.
+    if device == "cpu":
+        executor_cls = ThreadPoolExecutor
+        executor_kwargs = {}
+    else:
+        executor_cls = ProcessPoolExecutor
+        executor_kwargs = {"mp_context": mp.get_context("spawn")}
 
-    with ProcessPoolExecutor(
-        max_workers=max_workers,
-        mp_context=ctx,
-    ) as executor:
+    with executor_cls(max_workers=max_workers, **executor_kwargs) as executor:
 
         futures = {
             executor.submit(evaluate_table, args): idx
@@ -225,7 +233,8 @@ def evaluate_poker_population(
 
             try:
                 deltas, traces = future.result()
-                logger.log_hands(generation, traces)
+                if log_hands_every > 0 and generation % log_hands_every == 0:
+                    logger.log_hands(generation, traces)
 
                 for local_idx, genome_idx in enumerate(table_members):
                     population[genome_idx].fitness_score += deltas[local_idx]
@@ -236,14 +245,6 @@ def evaluate_poker_population(
                 # penalize failed table
                 for genome_idx in table_members:
                     population[genome_idx].fitness_score -= 1000.0
-
-    min_fitness = min(g.fitness_score.item() for g in population)
-
-    shift = abs(min_fitness) + 1.0 if min_fitness <= 0 else 0.0
-
-    if shift > 0:
-        for g in population:
-            g.fitness_score += shift
 
 
 def set_env_recursive(d, prefix=""):
@@ -261,8 +262,8 @@ def main():
     env = EnvYAML(yaml_file="config.yaml")
     set_env_recursive(dict(env))
 
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    # device = "cpu"
     print(f"Using device: {device}\n")
 
     print("Initializing poker population...")
@@ -277,6 +278,7 @@ def main():
     checkpoint_manager = CheckpointManager(
         checkpoint_dir=os.path.join(logger.log_dir, "checkpoints")
     )
+    log_hands_every = int(os.environ.get("ENV_LOG_HANDS_EVERY", 10))
 
     print(f"Population size: {int(os.environ['ENV_POPULATION_SIZE'])}")
     print(f"Generations: {int(os.environ['ENV_NUM_GENERATIONS'])}\n")
@@ -302,6 +304,7 @@ def main():
             device,
             gen,
             logger,
+            log_hands_every=log_hands_every,
         )
 
         def evaluate_fn(genome: Genome) -> torch.Tensor:

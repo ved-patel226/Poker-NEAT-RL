@@ -13,6 +13,7 @@
     "@heruka_urgyen/react-playing-cards": "^0.5.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-router-dom": "^7.15.1",
     "shaders": "^2.5.124"
   },
   "devDependencies": {
