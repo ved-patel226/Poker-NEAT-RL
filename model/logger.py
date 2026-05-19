@@ -1,14 +1,19 @@
 import os
 from datetime import datetime
+from enum import Enum
+from dataclasses import is_dataclass, asdict
 from torch.utils.tensorboard import SummaryWriter
 import json
 
 
 class TensorFlowLogger:
-    def __init__(self, log_dir: str = "runs"):
+    def __init__(
+        self, log_dir: str = "runs", game_log_path: str = "poker-ai-game.json"
+    ):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.log_dir = os.path.join(log_dir, f"neat_{timestamp}")
         self.writer = SummaryWriter(self.log_dir)
+        self.game_log_path = os.path.abspath(game_log_path)
         print(f"Logging to: {self.log_dir}")
 
     def log_scalar(self, tag: str, value: float, step: int):
@@ -59,19 +64,26 @@ class TensorFlowLogger:
         if not traces:
             return
 
-        sample_count = min(3, len(traces))
-        sample_indices = list(range(sample_count))
+        # sample_count = min(3, len(traces))
 
-        for sample_idx in sample_indices:
-            trace = traces[sample_idx]
-            if not trace:
-                continue
+        # for sample_idx, trace in enumerate(sample_traces):
+        #     if not trace:
+        #         continue
 
-            self.writer.add_text(
-                f"hands/g{generation:05d}/sample_{sample_idx}",
-                self._format_hand_trace(trace),
-                generation,
-            )
+        #     # self.writer.add_text(
+        #     #     f"hands/g{generation:05d}/sample_{sample_idx}",
+        #     #     self._format_hand_trace(trace),
+        #     #     generation,
+        #     # )
+
+        payload = {
+            "generation": generation,
+            "hand_count": len(traces),
+            "games": [self._serialize_value(trace) for trace in traces if trace],
+        }
+
+        with open(self.game_log_path, "w", encoding="utf-8") as file_handle:
+            json.dump(payload, file_handle, indent=2)
 
     def _format_hand_trace(self, trace: list[dict]) -> str:
         lines = [f"# Hand trace ({len(trace)} actions)", ""]
@@ -108,6 +120,24 @@ class TensorFlowLogger:
         return {0: "fold", 1: "call", 2: "raise"}.get(
             action_type, f"type_{action_type}"
         )
+
+    def _serialize_value(self, value):
+        if is_dataclass(value):
+            value = asdict(value)
+
+        if isinstance(value, Enum):
+            return value.value
+
+        if isinstance(value, dict):
+            return {key: self._serialize_value(item) for key, item in value.items()}
+
+        if isinstance(value, list):
+            return [self._serialize_value(item) for item in value]
+
+        if isinstance(value, tuple):
+            return [self._serialize_value(item) for item in value]
+
+        return value
 
     def log_figure(self, tag: str, figure, step: int):
         self.writer.add_figure(tag, figure, step, close=False)

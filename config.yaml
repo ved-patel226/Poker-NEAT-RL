@@ -8,4 +8,5 @@ neat:
 env:
   population_size: 300
   num_generations: 10_000
-  config_hands_per_table: 200
+  config_hands_per_table: 20
+  log_hands_every: 10_000

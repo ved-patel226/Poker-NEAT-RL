@@ -133,8 +133,19 @@ def speciate(population, existing_species):
 # penalize genomes part of a large species (we want diversity)
 def adjust_fitness(species_list):
     for species in species_list:
-        for genome in species.members:
-            genome.adjusted_fitness = genome.fitness_score.item() / len(species.members)
+        if not species.members:
+            continue
+
+        fits = [g.fitness_score.item() for g in species.members]
+
+        min_fit = min(fits)
+        shift = -min_fit + 1e-6 if min_fit <= 0 else 0.0  # allows negative fitness
+
+        size_penalty = len(species.members)
+
+        for g, f in zip(species.members, fits):
+            adjusted = (f + shift) / size_penalty
+            g.adjusted_fitness = adjusted
 
 
 # if the species isn't improving, remove them

@@ -102,8 +102,7 @@ def evaluate_table(args):
         hand_log = []
         obs.reset()
         state_dict = obs.get_state()
-
-        start_stacks = [obs.nominal_stack for _ in state_dict["players"]]
+        start_stacks = [p["stack"] for p in state_dict["players"]]
 
         while not state_dict["hand_over"]:
             player_idx = state_dict["acting_idx"]
@@ -172,7 +171,7 @@ def evaluate_table(args):
 
         for i in range(len(genomes)):
             table_fitness[i] += float(
-                end_stacks[i]
+                end_stacks[i] - start_stacks[i]
             )  # TODO: make sure ts works (if not, delta???)
 
     return table_fitness, traces
@@ -184,35 +183,20 @@ def evaluate_poker_population(
     device: str,
     generation: int,
     logger: TensorFlowLogger,
-    log_hands_every: int = 1,
+    log_hands_every: int = 10_000,
+    rounds: int = 20,
 ):
     for g in population:  # init fitness
         g.fitness_score = torch.tensor(0.0, device=device)
 
     table_size = 6
 
-    # shuffle seating
-    pop_indices = list(range(len(population)))
-    random.shuffle(pop_indices)
-
     num_tables = len(population) // table_size
-
-    table_jobs = []
-
-    for t_idx in range(num_tables):
-        table_members = pop_indices[t_idx * table_size : (t_idx + 1) * table_size]
-
-        genomes = [population[i] for i in table_members]
-
-        table_jobs.append((table_members, genomes))
-
-    worker_args = [(genomes, config_hands_per_table) for _, genomes in table_jobs]
-
     max_workers = max(1, min(8, num_tables))
 
     # CPU self-play is better served by threads here: it avoids shipping many
     # tensor-backed Genome objects through multiprocessing shared memory.
-    if device == "cpu":
+    if device == "cpu":  # spawn does WEIRD WEIRD WIERD stuff with cpu idek
         executor_cls = ThreadPoolExecutor
         executor_kwargs = {}
     else:
@@ -220,6 +204,22 @@ def evaluate_poker_population(
         executor_kwargs = {"mp_context": mp.get_context("spawn")}
 
     with executor_cls(max_workers=max_workers, **executor_kwargs) as executor:
+        for _ in range(rounds):
+            # shuffle seating each round now
+            pop_indices = list(range(len(population)))
+            random.shuffle(pop_indices)
+
+            table_jobs = []
+
+            for t_idx in range(num_tables):
+                table_members = pop_indices[
+                    t_idx * table_size : (t_idx + 1) * table_size
+                ]
+
+                genomes = [population[i] for i in table_members]
+
+                table_jobs.append((table_members, genomes))
+        worker_args = [(genomes, config_hands_per_table) for _, genomes in table_jobs]
 
         futures = {
             executor.submit(evaluate_table, args): idx
@@ -262,8 +262,8 @@ def main():
     env = EnvYAML(yaml_file="config.yaml")
     set_env_recursive(dict(env))
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    # device = "cpu"
+    # device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     print(f"Using device: {device}\n")
 
     print("Initializing poker population...")
