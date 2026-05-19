@@ -10,8 +10,16 @@
   font-family: "Tusker";
   src: url("/fonts/TuskerGrotesk-3500Medium.ttf") format("truetype");
 }
+:root {
+  --color-accent: #AF9AC9;
+  --color-background: #666161;
+  --color-text: #E9E3DE;
+  --color-primary: #A5937B;
+  --color-secondary: #E3C49B;
+}
+
 body {
-  background-color: #666161;
+  background-color: var(--color-background);
 }
 
 * {
@@ -37,7 +45,7 @@ h5,
 h6,
 p,
 li {
-  color: #E9E3DE;
+  color: var(--color-text);
 }
 
 p {
@@ -64,7 +72,7 @@ h2 {
 a {
   position: relative;
   display: inline-block;
-  color: #E9E3DE;
+  color: var(--color-text);
   text-decoration: none;
   padding: 0.1em 0.35em;
   z-index: 1;
@@ -74,7 +82,7 @@ a::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: #AF9AC9;
+  background: var(--color-accent);
   transform: translate(0px, 1px) rotate(-2deg);
   z-index: -1;
   border-radius: 2px;
@@ -82,7 +90,7 @@ a::before {
 }
 a:hover::before {
   transform: translate(0px, 2px) rotate(1deg);
-  background: #E3C49B;
+  background: var(--color-secondary);
 }
 
 /*# sourceMappingURL=index.css.map */

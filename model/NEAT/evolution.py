@@ -29,14 +29,14 @@ def breed_next_generation(species_list, population_size, tracker):
 
         members = sorted(
             species.members, key=lambda g: g.fitness_score.item(), reverse=True
-        )
+        )  # sort by fitness score
 
         # best survives unchanged
         next_generation.append(copy.deepcopy(members[0]))
 
         for _ in range(n_offspring - 1):
             if len(members) == 1 or random.random() < 0.2:
-                child = mutate(copy.deepcopy(members[0]), tracker)
+                child = mutate(copy.deepcopy(members[0]), tracker)  # *need deepcopy
             else:
                 a = random.choice(members)
                 b = random.choice(members)
@@ -50,8 +50,11 @@ def breed_next_generation(species_list, population_size, tracker):
     best_species = max(
         species_list, key=lambda s: sum(g.adjusted_fitness for g in s.members)
     )
+
     while len(next_generation) < population_size:
-        child = mutate(copy.deepcopy(best_species.members[0]), tracker)
+        child = mutate(
+            copy.deepcopy(best_species.members[0]), tracker
+        )  # * need deepcopy here
         next_generation.append(child)
 
     return next_generation[:population_size]

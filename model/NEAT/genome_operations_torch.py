@@ -1,6 +1,8 @@
 # if you're looking at this code for the first time, look at genome_operations_readable.py
 # its much more readable cuz I didn't use random torch stuff to optimize for speed
 
+import os
+import random
 import torch
 
 try:
@@ -14,6 +16,16 @@ ACTIVATION_FN = {
     1: torch.tanh,
     2: torch.sigmoid,
 }
+
+
+def _get_init_conn_prob():
+    raw = os.environ.get("NEAT_INIT_CONN_PROB")
+    if raw is None:
+        return None
+    try:
+        return max(0.0, min(1.0, float(raw)))
+    except ValueError:
+        return None
 
 
 def forward(genome: Genome, x: torch.Tensor) -> torch.Tensor:
@@ -119,6 +131,7 @@ def create_genome(
     output_nodes: int,
     connections: list = None,
     device: str = "cpu",
+    init_conn_prob=None,
 ) -> Genome:
     total_nodes = input_nodes + hidden_nodes + output_nodes + 1
 
@@ -139,43 +152,52 @@ def create_genome(
     node_activations = torch.zeros(total_nodes, dtype=torch.long, device=device)
     node_activations[output_start:] = 1  # tanh for outputs
 
+    if init_conn_prob is None:
+        init_conn_prob = _get_init_conn_prob()
+    if init_conn_prob is None:
+        init_conn_prob = 0.25
+
     if connections is None:
         conn_list = []
         innovation = 0
 
-        if hidden_nodes > 0:
-            for i in range(input_nodes):
-                for j in range(hidden_start, hidden_end):
-                    conn_list.append(
-                        (i, j, float(torch.randn(1).item()), True, innovation)
-                    )
-                    innovation += 1
-
-            for j in range(hidden_start, hidden_end):
+        def maybe_add(in_idx: int, out_idx: int) -> bool:
+            nonlocal innovation
+            if random.random() < init_conn_prob:
                 conn_list.append(
-                    (bias_index, j, float(torch.randn(1).item()), True, innovation)
+                    (in_idx, out_idx, float(torch.randn(1).item()), True, innovation)
                 )
                 innovation += 1
+                return True
+            return False
 
-            for i in range(hidden_start, hidden_end):
-                for j in range(output_start, total_nodes):
-                    conn_list.append(
-                        (i, j, float(torch.randn(1).item()), True, innovation)
-                    )
-                    innovation += 1
+        if hidden_nodes > 0:
+            for j in range(hidden_start, hidden_end):
+                connected = False
+                for i in range(input_nodes):
+                    connected = maybe_add(i, j) or connected
+                if not connected:
+                    i = random.randrange(input_nodes)
+                    maybe_add(i, j)
+                maybe_add(bias_index, j)
+
+            for j in range(output_start, total_nodes):
+                connected = False
+                for i in range(hidden_start, hidden_end):
+                    connected = maybe_add(i, j) or connected
+                if not connected:
+                    i = random.randrange(hidden_start, hidden_end)
+                    maybe_add(i, j)
+                maybe_add(bias_index, j)
         else:
-            for i in range(input_nodes):
-                for j in range(output_start, total_nodes):
-                    conn_list.append(
-                        (i, j, float(torch.randn(1).item()), True, innovation)
-                    )
-                    innovation += 1
-
-        for j in range(output_start, total_nodes):
-            conn_list.append(
-                (bias_index, j, float(torch.randn(1).item()), True, innovation)
-            )
-            innovation += 1
+            for j in range(output_start, total_nodes):
+                connected = False
+                for i in range(input_nodes):
+                    connected = maybe_add(i, j) or connected
+                if not connected:
+                    i = random.randrange(input_nodes)
+                    maybe_add(i, j)
+                maybe_add(bias_index, j)
     else:
         conn_list = [
             (in_idx, out_idx, w, True, i)

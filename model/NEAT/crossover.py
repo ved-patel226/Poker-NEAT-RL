@@ -33,10 +33,10 @@ def crossover(parent_a, parent_b):
             idx = innov_a[innov] if random.random() < 0.5 else innov_b[innov]
             src = parent_a if idx == innov_a.get(innov) else parent_b
 
-            # if either parent has it disabled, 75% chance child is disabled too
+            # if either parent has it disabled, 25% chance child inherits disabled
             a_enabled = parent_a.connections.conn_enabled[innov_a[innov]].item()
             b_enabled = parent_b.connections.conn_enabled[innov_b[innov]].item()
-            enabled = True if (a_enabled and b_enabled) else (random.random() > 0.75)
+            enabled = (a_enabled and b_enabled) or (random.random() < 0.75)
 
         elif in_a:
             # disjoint/excess: take from fitter parent (parent_a)

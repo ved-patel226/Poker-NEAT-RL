@@ -3,8 +3,8 @@ try:
 except ImportError:
     from states import Street, PlayerState, PokerState, Action
 
-
 from pokerkit import NoLimitTexasHoldem, Mode, Automation
+from dataclasses import asdict
 import torch
 
 # (2-A) is 13-dim
@@ -68,7 +68,6 @@ class Observation:
         return self.state
 
     def get_state(self) -> dict:
-        from dataclasses import asdict
 
         street_map = {
             0: Street.PREFLOP,

@@ -219,6 +219,7 @@ def evaluate_poker_population(
                 genomes = [population[i] for i in table_members]
 
                 table_jobs.append((table_members, genomes))
+
         worker_args = [(genomes, config_hands_per_table) for _, genomes in table_jobs]
 
         futures = {
@@ -257,8 +258,6 @@ def set_env_recursive(d, prefix=""):
 
 
 def main():
-    import os
-
     env = EnvYAML(yaml_file="config.yaml")
     set_env_recursive(dict(env))
 
@@ -326,8 +325,18 @@ def main():
             )
             print(f"Saved checkpoint: {checkpoint_path}")
 
-        print(f"   Current best: {best_fitness:.6f}")
+        print(
+            f"   Current best: {best_fitness:.6f} (nodes: {best.nodes.node_ids.shape[0]}, conns: {best.connections.conn_indices.shape[0]})"
+        )
         print(f"   Overall best: {best_overall_fitness:.6f}")
+
+        pop_nodes = [g.nodes.node_ids.shape[0] for g in population]
+        pop_conns = [g.connections.conn_indices.shape[0] for g in population]
+        print(
+            "   Pop avg/max: "
+            f"nodes {np.mean(pop_nodes):.1f}/{np.max(pop_nodes)}, "
+            f"conns {np.mean(pop_conns):.1f}/{np.max(pop_conns)}"
+        )
 
         avg_fitness = np.mean([g.fitness_score.item() for g in population])
         fitness_std = np.std([g.fitness_score.item() for g in population])
@@ -339,10 +348,11 @@ def main():
             len(species_list),
             len(population),
         )
+
         logger.log_network(
             gen + 1,
-            best_overall.nodes.node_ids.shape[0],
-            best_overall.connections.conn_indices.shape[0],
+            best.nodes.node_ids.shape[0],
+            best.connections.conn_indices.shape[0],
         )
 
         for species in species_list:

@@ -1,5 +1,7 @@
 .card {
-  width: 10%;
+  width: clamp(3rem, 6vw, 5rem);
+  height: auto;
+  display: block;
 }
 
 /*# sourceMappingURL=card.module.css.map */

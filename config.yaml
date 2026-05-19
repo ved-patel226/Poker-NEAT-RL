@@ -4,6 +4,7 @@ neat:
   C3: 0.4 # weight difference weight
   DELTA_THRESHOLD: 0.5 # genomes within this distance = same species (lowered to encourage speciation)
   STALE_LIMIT: 20 # generations without improvement before species dies
+  init_conn_prob: 1.0 # fully connected at init
 
 env:
   population_size: 300

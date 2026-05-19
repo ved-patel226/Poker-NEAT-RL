@@ -14,6 +14,15 @@ class TensorFlowLogger:
         self.log_dir = os.path.join(log_dir, f"neat_{timestamp}")
         self.writer = SummaryWriter(self.log_dir)
         self.game_log_path = os.path.abspath(game_log_path)
+        self.public_game_log_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "frontend",
+                "public",
+                "poker-ai-game.json",
+            )
+        )
         print(f"Logging to: {self.log_dir}")
 
     def log_scalar(self, tag: str, value: float, step: int):
@@ -84,6 +93,12 @@ class TensorFlowLogger:
 
         with open(self.game_log_path, "w", encoding="utf-8") as file_handle:
             json.dump(payload, file_handle, indent=2)
+
+        try:
+            with open(self.public_game_log_path, "w", encoding="utf-8") as file_handle:
+                json.dump(payload, file_handle, indent=2)
+        except OSError:
+            pass
 
     def _format_hand_trace(self, trace: list[dict]) -> str:
         lines = [f"# Hand trace ({len(trace)} actions)", ""]

@@ -1,27 +1,15 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { Layout } from "./styles/Layout";
-import { CommunityCards } from "./components/Poker/CommunityCards";
-
+import { TexasHoldem } from "./components/Poker/TexasHoldem";
 function App() {
   return (
     <>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route
-              path="*"
-              element={
-                <CommunityCards
-                  cards={[
-                    { rank: "A", suit: "spades" },
-                    { rank: "K", suit: "hearts" },
-                    { rank: "Q", suit: "diamonds" },
-                    { rank: "J", suit: "clubs" },
-                    { rank: "T", suit: "spades" },
-                  ]}
-                />
-              }
-            />
+            <Route index element={<Navigate to="/load" replace />} />
+            <Route path="/load" element={<TexasHoldem />} />
+            <Route path="*" element={<Navigate to="/load" replace />} />
           </Route>
         </Routes>
       </BrowserRouter>

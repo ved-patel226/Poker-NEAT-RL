@@ -1,7 +1,35 @@
+import os
 import random
 import torch
 
 # TODO: expirement with more interesting mutations
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, default))
+    except ValueError:
+        return default
+
+
+def re_enable_connection(genome, tracker):
+    """Re-enable a random disabled connection or enable all if none are disabled."""
+    device = genome.nodes.node_ids.device
+    disabled_mask = ~genome.connections.conn_enabled.bool()
+    disabled_indices = torch.where(disabled_mask)[0].tolist()
+
+    if disabled_indices:
+        # re-enable a random disabled connection
+        idx = random.choice(disabled_indices)
+        genome.connections.conn_enabled[idx] = True
+        return genome
+
+    # If no disabled connections, force-enable some random ones to ensure diversity
+    if len(genome.connections.conn_enabled) > 0 and random.random() < 0.3:
+        idx = random.randint(0, len(genome.connections.conn_enabled) - 1)
+        genome.connections.conn_enabled[idx] = True
+
+    return genome
 
 
 def mutate_weights(genome, perturb_rate=0.1, replace_rate=0.02):
@@ -25,10 +53,11 @@ def add_connection(genome, tracker):
     # find all pairs that don't already have a connection
     existing = set(map(tuple, genome.connections.conn_indices.tolist()))
 
-    node_ids = genome.nodes.node_ids.tolist()
+    num_nodes = genome.nodes.node_ids.shape[0]
+    node_ids = list(range(num_nodes))
     node_types = {
-        int(node_id): int(node_type)
-        for node_id, node_type in zip(node_ids, genome.nodes.node_types.tolist())
+        idx: int(node_type)
+        for idx, node_type in enumerate(genome.nodes.node_types.tolist())
     }
 
     def is_valid_source_target(in_node, out_node):
@@ -51,7 +80,8 @@ def add_connection(genome, tracker):
     ]
 
     if not candidates:
-        return genome  # fully connected, nothing to add
+        # Network is fully connected - try re-enabling a connection instead
+        return re_enable_connection(genome, tracker)
 
     in_node, out_node = random.choice(candidates)
     innovation = tracker.get_innovation_number(in_node, out_node)
@@ -81,7 +111,14 @@ def add_node(genome, tracker):
     enabled_indices = torch.where(enabled_mask)[0].tolist()
 
     if not enabled_indices:
-        return genome
+        # No enabled connections to split - try re-enabling one first
+        genome = re_enable_connection(genome, tracker)
+        # Re-compute enabled indices after re-enabling
+        enabled_mask = genome.connections.conn_enabled.bool()
+        enabled_indices = torch.where(enabled_mask)[0].tolist()
+
+        if not enabled_indices:
+            return genome  # Still no enabled connections
 
     # pick a random enabled connection to split
     split_idx = random.choice(enabled_indices)
@@ -93,10 +130,8 @@ def add_node(genome, tracker):
     genome.connections.conn_enabled[split_idx] = False
 
     # add the new node
-    new_node_id = genome.nodes.node_ids.max().item() + 1
-    genome.nodes.node_ids = torch.cat(
-        [genome.nodes.node_ids, torch.tensor([new_node_id], device=device)]
-    )
+    new_node_id = genome.nodes.node_ids.shape[0]
+    genome.nodes.node_ids = torch.arange(new_node_id + 1, device=device)
     genome.nodes.node_types = torch.cat(
         [genome.nodes.node_types, torch.tensor([1], device=device)]  # 1 = hidden
     )
@@ -129,10 +164,24 @@ def add_node(genome, tracker):
 def mutate(genome, tracker):
     genome = mutate_weights(genome)  # always
 
-    if random.random() < 0.05:  # TODO: add config for this
+    add_conn_prob = _env_float("NEAT_ADD_CONN_PROB", 0.12)
+    add_node_prob = _env_float("NEAT_ADD_NODE_PROB", 0.08)
+    add_node_no_hidden_prob = _env_float("NEAT_ADD_NODE_NO_HIDDEN_PROB", 0.35)
+    reenable_prob = _env_float("NEAT_REENABLE_CONN_PROB", 0.05)
+
+    has_hidden = bool((genome.nodes.node_types == 1).any().item())
+    if not has_hidden and random.random() < add_node_no_hidden_prob:
+        genome = add_node(genome, tracker)
+
+    if random.random() < add_conn_prob:  # increased from 0.05
         genome = add_connection(genome, tracker)
 
-    if random.random() < 0.03:
+    if has_hidden and random.random() < add_node_prob:  # increased from 0.03
         genome = add_node(genome, tracker)
+
+    # Fallback mutation: ensure exploration by re-enabling connections sometimes
+    # This helps escape the "fully connected + all disabled" state
+    if random.random() < reenable_prob:
+        genome = re_enable_connection(genome, tracker)
 
     return genome

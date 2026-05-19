@@ -29,8 +29,16 @@ $spring-duration: 0.8333s;
     src: url("/fonts/TuskerGrotesk-3500Medium.ttf") format("truetype");
 }
 
+:root {
+    --color-accent: #{$color-accent};
+    --color-background: #{$color-background};
+    --color-text: #{$color-text};
+    --color-primary: #{$color-primary};
+    --color-secondary: #{$color-secondary};
+}
+
 body {
-    background-color: $color-background;
+    background-color: var(--color-background);
 }
 
 * {
@@ -42,6 +50,7 @@ body {
     display: flex;
     min-height: 100vh;
 }
+
 
 .content {
     flex: 1;
@@ -58,7 +67,7 @@ h5,
 h6,
 p,
 li {
-    color: $color-text
+    color: var(--color-text)
 }
 
 p {
@@ -87,7 +96,7 @@ a {
     position: relative;
     display: inline-block;
 
-    color: $color-text;
+    color: var(--color-text);
     text-decoration: none;
 
     padding: 0.1em 0.35em;
@@ -101,7 +110,7 @@ a {
 
         inset: 0;
 
-        background: $color-accent;
+        background: var(--color-accent);
 
         transform:
             translate(0px, 1px) rotate(-2deg);
@@ -119,6 +128,6 @@ a {
         transform:
             translate(0px, 2px) rotate(1deg);
 
-        background: $color-secondary;
+        background: var(--color-secondary);
     }
 }
