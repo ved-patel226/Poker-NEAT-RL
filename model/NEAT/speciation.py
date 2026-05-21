@@ -10,13 +10,13 @@ c1, c2, c3 = constants, YOU HAVE TO TUNE TS (normally: 1.0, 1.0, 0.4)
 If δ < threshold, its the same species
 """
 
-import random
 import os
+import random
 
 try:
-    from .data_structures import Species
-except:
-    from data_structures import Species
+    from .data_structures import Genome, Species
+except ImportError:
+    from data_structures import Genome, Species
 
 
 def _env_float(name: str, default: float) -> float:
@@ -27,7 +27,7 @@ def _env_int(name: str, default: int) -> int:
     return int(os.environ.get(name, default))
 
 
-def compatibility_distance(genome_a, genome_b):
+def compatibility_distance(genome_a: Genome, genome_b: Genome) -> float:
     # looks complicated because of the tensor bs but it just gets all connections for both genomes
     genes_a = {
         int(innov): (int(in_node), int(out_node), float(weight))
@@ -114,7 +114,7 @@ def speciate(population, existing_species):
     # remove empty species
     species_list = [s for s in species_list if len(s.members) > 0]
 
-    # Dynamically adjust threshold to maintain target number of species (e.g. 5-15)
+    #  adjust threshold to maintain target number of species
     target_species = 10
     if len(species_list) < target_species:
         CURRENT_THRESHOLD -= 0.05

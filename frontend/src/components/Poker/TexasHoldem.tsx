@@ -105,6 +105,8 @@ function flattenTrace(trace: TraceFile) {
   );
 }
 
+// TODO: find a better way to do this...
+// idrk im not feelin ts
 function describeAction(action: TraceAction) {
   const actor = `Player ${action.player + 1}`;
 

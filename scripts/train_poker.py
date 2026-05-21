@@ -46,6 +46,11 @@ def choose_action(
 
     logits = out[:3]
 
+    epsilon = float(os.environ.get("ENV_ACTION_EPSILON", 0.1))
+    temperature = float(os.environ.get("ENV_ACTION_TEMPERATURE", 1.0))
+    if temperature <= 0:
+        temperature = 1.0
+
     # avoid CPU-GPU syncs from .item()
     valid_mask = torch.tensor(
         [
@@ -64,7 +69,20 @@ def choose_action(
         torch.full_like(logits, -1e9),
     )
 
-    type_picked = int(torch.argmax(masked_logits).item())
+    if random.random() < epsilon:
+        valid_indices = torch.where(valid_mask)[0]
+        if valid_indices.numel() > 0:
+            type_picked = int(
+                valid_indices[torch.randint(0, len(valid_indices), (1,))].item()
+            )
+        else:
+            type_picked = 0
+    else:
+        probs = torch.softmax(masked_logits / temperature, dim=0)
+        if torch.isfinite(probs).all() and probs.sum().item() > 0:
+            type_picked = int(torch.multinomial(probs, 1).item())
+        else:
+            type_picked = int(torch.argmax(masked_logits).item())
 
     amount = 0
 
