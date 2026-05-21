@@ -159,25 +159,26 @@ export function TexasHoldem() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isPlaying || events.length === 0) {
-      return;
-    }
+  // Removed auto-cycling effect to require manual navigation via controls
+  // useEffect(() => {
+  //   if (!isPlaying || events.length === 0) {
+  //     return;
+  //   }
 
-    if (currentStep >= events.length - 1) {
-      setIsPlaying(false);
-      return;
-    }
+  //   if (currentStep >= events.length - 1) {
+  //     setIsPlaying(false);
+  //     return;
+  //   }
 
-    const currentEvent = events[currentStep];
-    const delay = currentEvent.action.type === 2 ? 1400 : 900;
+  //   const currentEvent = events[currentStep];
+  //   const delay = currentEvent.action.type === 2 ? 1400 : 900;
 
-    const timeout = window.setTimeout(() => {
-      setCurrentStep((value) => Math.min(value + 1, events.length - 1));
-    }, delay);
+  //   const timeout = window.setTimeout(() => {
+  //     setCurrentStep((value) => Math.min(value + 1, events.length - 1));
+  //   }, delay);
 
-    return () => window.clearTimeout(timeout);
-  }, [currentStep, events, isPlaying]);
+  //   return () => window.clearTimeout(timeout);
+  // }, [currentStep, events, isPlaying]);
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const uploadedFile = event.target.files?.[0];
@@ -203,7 +204,7 @@ export function TexasHoldem() {
       setTrace(parsed);
       setEvents(playbackEvents);
       setCurrentStep(0);
-      setIsPlaying(true);
+      setIsPlaying(false); // start paused so user controls playback
     } catch (uploadError) {
       setTrace(null);
       setEvents([]);
@@ -232,11 +233,18 @@ export function TexasHoldem() {
     : "Waiting for upload";
   const statusLabel = !trace
     ? "Waiting"
-    : isPlaying
-      ? "Playing"
-      : currentStep >= events.length - 1
-        ? "Finished"
-        : "Paused";
+    : currentStep >= events.length - 1
+      ? "Finished"
+      : "Paused";
+
+  // Navigation handlers
+  function goNext() {
+    setCurrentStep((v) => Math.min(v + 1, events.length - 1));
+  }
+
+  function goPrevious() {
+    setCurrentStep((v) => Math.max(v - 1, 0));
+  }
 
   return (
     <div className={styles.poker}>
@@ -328,6 +336,16 @@ export function TexasHoldem() {
                 {traceName} ·{" "}
                 {currentState.hand_over ? "Hand complete" : "Hand in progress"}
               </p>
+
+              <div className={styles.playbackControls}>
+                <a href="#" className={styles.controlButton} onClick={(e) => { e.preventDefault(); goPrevious(); }}>
+                  &larr; Previous
+                </a>
+
+                <a href="#" className={styles.controlButton} onClick={(e) => { e.preventDefault(); goNext(); }}>
+                  Next &rarr;
+                </a>
+              </div>
             </div>
 
             <div className={styles.row}>
