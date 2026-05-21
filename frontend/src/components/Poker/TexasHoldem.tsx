@@ -3,6 +3,8 @@ import type { CardProps } from "./Card";
 import { Cards } from "./Cards";
 import styles from "../../styles/css/texasholdem.module.css";
 
+// TODO: put all these types into another file...
+
 type CardVector = [number, number];
 
 type TracePlayer = {
@@ -338,11 +340,25 @@ export function TexasHoldem() {
               </p>
 
               <div className={styles.playbackControls}>
-                <a href="#" className={styles.controlButton} onClick={(e) => { e.preventDefault(); goPrevious(); }}>
+                <a
+                  href="#"
+                  className={styles.controlButton}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goPrevious();
+                  }}
+                >
                   &larr; Previous
                 </a>
 
-                <a href="#" className={styles.controlButton} onClick={(e) => { e.preventDefault(); goNext(); }}>
+                <a
+                  href="#"
+                  className={styles.controlButton}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goNext();
+                  }}
+                >
                   Next &rarr;
                 </a>
               </div>
