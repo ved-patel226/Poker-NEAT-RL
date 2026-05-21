@@ -1,16 +1,35 @@
-$color-accent: #AF9AC9;
+$color-accent: #af9ac9;
 $color-background: #666161;
-$color-text: #E9E3DE;
-$color-primary: #A5937B;
-$color-secondary: #E3C49B;
+$color-text: #e9e3de;
+$color-primary: #a5937b;
+$color-secondary: #e3c49b;
 
-$spring-easing: linear(0, 0.0018, 0.0069 1.15%, 0.026 2.3%, 0.0637,
-    0.1135 5.18%, 0.2229 7.78%, 0.5977 15.84%,
-    0.7014, 0.7904, 0.8641, 0.9228, 0.9676 28.8%,
-    1.0032 31.68%, 1.0225, 1.0352 36.29%, 1.0431 38.88%,
-    1.046 42.05%, 1.0448 44.35%, 1.0407 47.23%,
-    1.0118 61.63%, 1.0025 69.41%, 0.9981 80.35%,
-    0.9992 99.94%);
+$spring-easing: linear(
+    0,
+    0.0018,
+    0.0069 1.15%,
+    0.026 2.3%,
+    0.0637,
+    0.1135 5.18%,
+    0.2229 7.78%,
+    0.5977 15.84%,
+    0.7014,
+    0.7904,
+    0.8641,
+    0.9228,
+    0.9676 28.8%,
+    1.0032 31.68%,
+    1.0225,
+    1.0352 36.29%,
+    1.0431 38.88%,
+    1.046 42.05%,
+    1.0448 44.35%,
+    1.0407 47.23%,
+    1.0118 61.63%,
+    1.0025 69.41%,
+    0.9981 80.35%,
+    0.9992 99.94%
+);
 
 $spring-duration: 0.8333s;
 
@@ -51,13 +70,11 @@ body {
     min-height: 100vh;
 }
 
-
 .content {
     flex: 1;
     padding: 1rem;
+    margin-left: 250px; //TODO: remove hardcoded value
 }
-
-
 
 h1,
 h2,
@@ -67,7 +84,7 @@ h5,
 h6,
 p,
 li {
-    color: var(--color-text)
+    color: var(--color-text);
 }
 
 p {
@@ -91,7 +108,6 @@ h2 {
     transition: transform $spring-duration $spring-easing;
 }
 
-
 a {
     position: relative;
     display: inline-block;
@@ -112,8 +128,7 @@ a {
 
         background: var(--color-accent);
 
-        transform:
-            translate(0px, 1px) rotate(-2deg);
+        transform: translate(0px, 1px) rotate(-2deg);
 
         z-index: -1;
 
@@ -125,8 +140,7 @@ a {
     }
 
     &:hover::before {
-        transform:
-            translate(0px, 2px) rotate(1deg);
+        transform: translate(0px, 2px) rotate(1deg);
 
         background: var(--color-secondary);
     }
