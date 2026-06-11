@@ -1,0 +1,8 @@
+# ===== SPECIES =====
+C1 = 1.0  # excess gene weight
+C2 = 1.0  # disjoint gene weight
+C3 = 0.4  # weight difference weight
+DELTA_THRESHOLD = (
+    0.5  # genomes within this distance = same species (lowered to encourage speciation)
+)
+STALE_LIMIT = 20  # generations without improvement before species dies

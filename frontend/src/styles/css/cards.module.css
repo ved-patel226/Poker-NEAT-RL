@@ -1,0 +1,36 @@
+.cardsContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cardsText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.cardsName {
+  font-family: Tusker, sans-serif;
+  font-size: 1.1rem;
+}
+
+.cardsMeta {
+  font-family: NeueMontreal, sans-serif;
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.cards {
+  display: flex;
+  gap: 0.9rem;
+}
+
+.card {
+  width: 10%;
+}
+
+/*# sourceMappingURL=cards.module.css.map */

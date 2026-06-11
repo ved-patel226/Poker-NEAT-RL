@@ -1,0 +1,130 @@
+@font-face {
+  font-family: "NeueMontreal";
+  src: url("/fonts/NeueMontreal-Regular.otf") format("opentype");
+}
+@font-face {
+  font-family: "Migra";
+  src: url("/fonts/Migra-Extralight.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Tusker";
+  src: url("/fonts/TuskerGrotesk-3500Medium.ttf") format("truetype");
+}
+:root {
+  --color-accent: #af9ac9;
+  --color-background: #666161;
+  --color-text: #e9e3de;
+  --color-primary: #a5937b;
+  --color-secondary: #e3c49b;
+}
+
+body {
+  background-color: var(--color-background);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.content {
+  flex: 1;
+  padding: 1rem;
+  margin-left: 250px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+li {
+  color: var(--color-text);
+}
+
+p {
+  font-family: Migra, sans-serif;
+}
+
+h1 {
+  font-family: Tusker, sans-serif;
+  font-size: 3rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+}
+
+.montreal {
+  font-family: NeueMontreal, sans-serif !important;
+}
+
+* {
+  transition: transform 0.8333s linear(0, 0.0018, 0.0069 1.15%, 0.026 2.3%, 0.0637, 0.1135 5.18%, 0.2229 7.78%, 0.5977 15.84%, 0.7014, 0.7904, 0.8641, 0.9228, 0.9676 28.8%, 1.0032 31.68%, 1.0225, 1.0352 36.29%, 1.0431 38.88%, 1.046 42.05%, 1.0448 44.35%, 1.0407 47.23%, 1.0118 61.63%, 1.0025 69.41%, 0.9981 80.35%, 0.9992 99.94%);
+}
+
+a {
+  position: relative;
+  display: inline-block;
+  color: var(--color-text);
+  text-decoration: none;
+  padding: 0.1em 0.35em;
+  z-index: 1;
+  font-family: NeueMontreal, sans-serif;
+}
+a::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--color-accent);
+  transform: translate(0px, 1px) rotate(-2deg);
+  z-index: -1;
+  border-radius: 2px;
+  transition: transform 0.25s ease, background 0.25s ease;
+}
+a:hover::before {
+  transform: translate(0px, 2px) rotate(1deg);
+  background: var(--color-secondary);
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100vh;
+  width: fit-content;
+  padding-inline: 0.75rem;
+  border-right: 3px solid rgba(255, 255, 255, 0.12);
+  /* position: relative; */
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(102, 97, 97, 0.08) 0%, rgba(255, 255, 255, 0.05) 100%), radial-gradient(circle at bottom left, rgba(165, 147, 123, 0.35), transparent 40%), #666161;
+  box-shadow: inset -1px 0 rgba(255, 255, 255, 0.04), 8px 0 30px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(2px);
+}
+.sidebar div {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+.sidebar div .link_list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sidebar p {
+  padding-bottom: 1rem;
+}
+
+/*# sourceMappingURL=navbar.module.css.map */

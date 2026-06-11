@@ -1,0 +1,15 @@
+neat:
+  C1: 1.0 # excess gene weight
+  C2: 1.0 # disjoint gene weight
+  C3: 0.4 # weight difference weight
+  DELTA_THRESHOLD: 0.5 # genomes within this distance = same species (lowered to encourage speciation)
+  STALE_LIMIT: 20 # generations without improvement before species dies
+  init_conn_prob: 1.0 # fully connected at init
+
+env:
+  population_size: 100
+  num_generations: 10_000
+  config_hands_per_table: 10
+  log_hands_every: 100
+  baseline_eval_every: 5
+  baseline_eval_hands: 500
