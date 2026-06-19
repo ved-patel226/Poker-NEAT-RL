@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import type { CardProps } from "./Card";
 import { Cards } from "./Cards";
 import styles from "../../styles/css/texasholdem.module.css";
@@ -136,9 +136,8 @@ function SeatCards({
 }) {
   return (
     <section
-      className={`${styles.seat} ${isActing ? styles.seatActive : ""} ${
-        player.folded ? styles.seatFolded : ""
-      }`}
+      className={`${styles.seat} ${isActing ? styles.seatActive : ""} ${player.folded ? styles.seatFolded : ""
+        }`}
     >
       <Cards
         name={`Player ${player.index + 1}`}
@@ -158,7 +157,6 @@ export function TexasHoldem() {
   const [trace, setTrace] = useState<TraceFile | null>(null);
   const [events, setEvents] = useState<PlaybackEvent[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Removed auto-cycling effect to require manual navigation via controls
@@ -206,12 +204,12 @@ export function TexasHoldem() {
       setTrace(parsed);
       setEvents(playbackEvents);
       setCurrentStep(0);
-      setIsPlaying(false); // start paused so user controls playback
+      // setIsPlaying(false); // start paused so user controls playback
     } catch (uploadError) {
       setTrace(null);
       setEvents([]);
       setCurrentStep(0);
-      setIsPlaying(false);
+      // setIsPlaying(false);
       setError(
         uploadError instanceof Error
           ? uploadError.message
@@ -239,7 +237,6 @@ export function TexasHoldem() {
       ? "Finished"
       : "Paused";
 
-  // Navigation handlers
   function goNext() {
     setCurrentStep((v) => Math.min(v + 1, events.length - 1));
   }

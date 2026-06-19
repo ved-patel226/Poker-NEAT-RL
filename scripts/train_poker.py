@@ -1,3 +1,8 @@
+# NOTE: training is increddibly noisy
+# - betweenn training runs best fitness can vary wildly, with just a diff random seed
+# - also, within a single training run, fitness can jump around a lot from generation to generation, with no clear trend upwards (until maybe the very end, if at all)
+# possible improvements are requested! ex. new researcch, new net, etc
+
 import warnings
 
 warnings.filterwarnings("ignore", message="There is no reason for this player to fold.")
@@ -366,6 +371,7 @@ def main():
     set_env_recursive(dict(env))
 
     # device = "cuda" if torch.cuda.is_available() else "cpu"
+    # TODO: for all these enviormment variables, add a class that reads them and provides defaults, type safety, etc. instead of doing it manually like this
     device = "cpu"
     print(f"Using device: {device}\n")
 
@@ -437,13 +443,13 @@ def main():
                 device,
             )
 
-            logger.log_scalar(
+            logger.log_scalar( # not seeing much improvements here,,, but maybe it's just very noisy and needs more hands or something? also maybe the baseline evaluation should be weighted more heavily in the fitness function?
                 "baseline/vs_random_bb100",
                 bb100_random,
                 gen + 1,
             )
 
-            logger.log_scalar(
+            logger.log_scalar( # improvements def showing,, ,but its SOOOOO SLOw
                 "baseline/vs_call_bb100",
                 bb100_call,
                 gen + 1,

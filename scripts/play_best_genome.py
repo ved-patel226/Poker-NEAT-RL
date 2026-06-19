@@ -124,14 +124,14 @@ def play_hands(genomes, num_hands: int, device: str):
                         action = Action(
                             player=player_idx,
                             street=state_dict["street"],
-                            type=0,
+                            type=0, # type 0 is fold
                             amount=0,
                         )
                     elif bounds["can_call"]:
                         action = Action(
                             player=player_idx,
                             street=state_dict["street"],
-                            type=1,
+                            type=1, # type 1 is call
                             amount=0,
                         )
                     else:
