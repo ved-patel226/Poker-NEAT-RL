@@ -59,7 +59,7 @@ export function PlayGame() {
     const engineRef = useRef<PokerEngine | null>(null);
 
     useEffect(() => {
-        fetch("/genomes/manifest.json")
+        fetch(import.meta.env.BASE_URL + "genomes/manifest.json")
             .then((res) => res.json())
             .then((data: ManifestEntry[]) => {
                 setManifest(data);
@@ -80,7 +80,7 @@ export function PlayGame() {
     async function startGame() {
         setError(null);
         try {
-            const res = await fetch(`/genomes/${selectedPath}`);
+            const res = await fetch(import.meta.env.BASE_URL + `genomes/${selectedPath}`);
             const genomeJson: GenomeJSON = await res.json();
             const loadedGenomes = Array.from({ length: 6 }, () => genomeJson);
             setGenomes(loadedGenomes);

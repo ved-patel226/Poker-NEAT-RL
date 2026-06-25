@@ -19,13 +19,19 @@ export function Card({ rank, suit, back = false }: CardProps) {
             : "";
 
   if (back) {
-    return <img className={styles.card} src="/cards/2B.svg" alt="Card back" />;
+    return (
+      <img
+        className={styles.card}
+        src={import.meta.env.BASE_URL + "cards/2B.svg"}
+        alt="Card back"
+      />
+    );
   }
 
   return (
     <img
       className={styles.card}
-      src={"/cards/" + rank + suitLetter + ".svg"}
+      src={import.meta.env.BASE_URL + "cards/" + rank + suitLetter + ".svg"}
       alt={rank + " of " + suit}
     />
   );
