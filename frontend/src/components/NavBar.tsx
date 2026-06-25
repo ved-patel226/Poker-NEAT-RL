@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import styles from "../styles/css/navbar.module.css";
 export function NavBar() {
   return (
@@ -8,22 +9,22 @@ export function NavBar() {
         <ul className={styles.link_list}>
           <li>
             <h2 className="montreal">
-              <a href="/available">Available Tables</a>
+              <Link to="/available">Available Tables</Link>
             </h2>
           </li>
           <li>
             <h2 className="montreal">
-              <a href="/play">Play vs AI</a>
+              <Link to="/play">Play vs AI</Link>
             </h2>
           </li>
           <li>
             <h2 className="montreal">
-              <a href="/load">Load Table</a>
+              <Link to="/load">Load Table</Link>
             </h2>
           </li>
           <li>
             <h2 className="montreal">
-              <a href="/history">Table History</a>
+              <Link to="/history">Table History</Link>
             </h2>
           </li>
         </ul>

@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export function Dashboard() {
     return (
         <div>
@@ -5,7 +7,7 @@ export function Dashboard() {
             <p>Here, you can start games with your poker AI!</p>
 
             <div>
-                <a href="/play">Start Game</a>
+                <Link to="/play">Start Game</Link>
             </div>
         </div>
     )
