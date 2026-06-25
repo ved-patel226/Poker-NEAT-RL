@@ -1,6 +1,8 @@
 // NOTE:
 // structure of this file is VERY similar to the python version...
 // if you're here to learn from the codebase, visit the python version first, (its easier)
+// /model/NEAT/*.py
+
 
 export type GenomeJSON = {
     nodes: {
