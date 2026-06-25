@@ -13,6 +13,11 @@ export function NavBar() {
           </li>
           <li>
             <h2 className="montreal">
+              <a href="/play">Play vs AI</a>
+            </h2>
+          </li>
+          <li>
+            <h2 className="montreal">
               <a href="/load">Load Table</a>
             </h2>
           </li>

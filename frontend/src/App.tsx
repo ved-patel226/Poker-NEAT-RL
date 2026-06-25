@@ -7,6 +7,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { Layout } from "./styles/Layout";
 import { TexasHoldem } from "./components/Poker/TexasHoldem";
 import { Dashboard } from "./components/Poker/Dashboard";
+import { PlayGame } from "./components/Poker/PlayGame";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route element={<Layout />}>
             <Route index element={<Navigate to="/available" replace />} />
             <Route path="/load" element={<TexasHoldem />} />
+            <Route path="/play" element={<PlayGame />} />
             <Route path="/available" element={<Dashboard />} />
             <Route path="*" element={<Navigate to="/available" replace />} />
           </Route>

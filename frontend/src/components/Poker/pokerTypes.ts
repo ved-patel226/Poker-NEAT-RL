@@ -12,8 +12,10 @@ export type TraceState = {
     players: TracePlayer[];
     board: CardVector[];
     pot: number;
+    acting_idx: number | null;
     street: string;
     dealer: number;
+    current_bet: number;
     min_raise: number;
     hand_over: boolean;
     winner: number | null;
