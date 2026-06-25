@@ -11,7 +11,7 @@ export type GenomeJSON = {
     connections: {
         indices: [number, number][];
         weights: number[];
-        enabled: boolean[];
+        enabled: boolean[]; // most of the time everythings enabled... so idk if we acc need this or
     };
 };
 
